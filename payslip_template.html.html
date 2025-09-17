@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <h2>給与明細</h2>
+    <p>講師名: <?= data.teacher ?></p>
+    <p>対象月: <?= data.month ?></p>
+
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><th colspan="2">支給</th></tr>
+      <tr><td>コマ給</td><td><?= data.komaPay ?>円</td></tr>
+      <tr><td>事務作業給</td><td><?= data.jimuPay ?>円</td></tr>
+      <tr><td>交通費</td><td><?= data.transport ?>円</td></tr>
+      <tr><td><b>支給合計</b></td><td><?= data.grossPay ?>円</td></tr>
+
+      <tr><th colspan="2">控除</th></tr>
+      <tr><td>源泉税額</td><td><?= data.tax ?>円</td></tr>
+      <tr><td><b>控除合計</b></td><td><?= data.tax ?>円</td></tr>
+
+      <tr><th colspan="2">差引支給額</th></tr>
+      <tr><td colspan="2"><b><?= data.net ?>円</b></td></tr>
+    </table>
+
+    <p>発行日: <?= Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy/MM/dd") ?></p>
+  </body>
+</html>

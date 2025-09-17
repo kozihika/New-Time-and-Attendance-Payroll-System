@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+  </head>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>塾長専用ダッシュボード</title>
+  </head>
+  <body>
+    <h1>塾長専用ダッシュボード</h1>
+
+    <!-- 講師と月の選択部分（既存のUIを活かす） -->
+    <label for="teacher">講師:</label>
+    <select id="teacher"></select>
+
+    <label for="month">月:</label>
+    <input type="month" id="month">
+
+    <button onclick="showSalary()">表示</button>
+
+    <!-- 総支給額・累計支給額（上部に残す） -->
+    <h2>今月の総支給額: <span id="grossPay"></span></h2>
+    <h2>今年の累計支給額: <span id="yearTotal"></span></h2>
+
+    <!-- 給与明細（表形式） -->
+    <h2>給与明細</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><th colspan="2">支給</th></tr>
+      <tr><td>コマ給</td><td id="komaPay"></td></tr>
+      <tr><td>事務作業給</td><td id="jimuPay"></td></tr>
+      <tr><td>交通費</td><td id="transport"></td></tr>
+      <tr><td><b>支給合計</b></td><td id="grossPayTable"></td></tr>
+
+      <tr><th colspan="2">控除</th></tr>
+      <tr>
+        <td>源泉税額</td>
+        <td><input type="number" id="taxInput" value="0"></td>
+      </tr>
+      <tr><td><b>控除合計</b></td><td id="deductionTotal">0</td></tr>
+
+      <tr><th colspan="2">差引支給額</th></tr>
+      <tr><td colspan="2" id="netPay"></td></tr>
+    </table>
+
+    <br>
+    <button onclick="finalizeSalary()">給与を締める</button>
+    <button onclick="downloadPdf()">PDF出力</button>
+
+    <script>
+      // データ表示
+      function showSalary() {
+        const teacher = document.getElementById("teacher").value;
+        const month = document.getElementById("month").value;
+
+        google.script.run.withSuccessHandler(function(data) {
+          // 総額表示
+          document.getElementById("grossPay").innerText = data.grossPay + "円";
+          document.getElementById("yearTotal").innerText = data.yearTotal + "円";
+
+          // 明細部分
+          document.getElementById("komaPay").innerText = data.komaPay + "円";
+          document.getElementById("jimuPay").innerText = data.jimuPay + "円";
+          document.getElementById("transport").innerText = data.transport + "円";
+          document.getElementById("grossPayTable").innerText = data.grossPay + "円";
+
+          // 控除 & 差引支給額
+          const tax = Number(document.getElementById("taxInput").value);
+          const deduction = tax;
+          const net = data.grossPay - deduction;
+
+          document.getElementById("deductionTotal").innerText = deduction + "円";
+          document.getElementById("netPay").innerText = net + "円";
+        }).getSalaryData(teacher, month); // GAS側にgetSalaryData()を用意
+      }
+
+      // 給与を締める
+      function finalizeSalary() {
+        const teacher = document.getElementById("teacher").value;
+        const month = document.getElementById("month").value;
+        const tax = document.getElementById("taxInput").value;
+
+        google.script.run.withSuccessHandler(function(msg) {
+          alert(msg);
+        }).closeSalary(teacher, month, tax);
+      }
+
+      // PDF出力
+      function downloadPdf() {
+        const teacher = document.getElementById("teacher").value;
+        const month = document.getElementById("month").value;
+        const tax = document.getElementById("taxInput").value;
+
+        google.script.run.withSuccessHandler(function(url) {
+          window.open(url, "_blank");
+        }).generatePayslipPdf(teacher, month, tax);
+      }
+    </script>
+  </body>
+</html>
+
+
