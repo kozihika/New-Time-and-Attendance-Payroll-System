@@ -34,10 +34,11 @@
       <tr><td><b>支給合計</b></td><td id="gross-pay"></td></tr>
 
       <tr><th colspan="2">控除</th></tr>
-      <tr>
-        <td>源泉税額</td>
-        <td><input type="number" id="tax-input" value="0"></td>
-      </tr>
+      <tr><td>所得税</td><td><input type="number" id="incomeTaxInput" value="0" class="deduction-input"></td></tr>
+      <tr><td>住民税</td><td><input type="number" id="residentTaxInput" value="0" class="deduction-input"></td></tr>
+      <tr><td>健康保険</td><td><input type="number" id="healthInsuranceInput" value="0" class="deduction-input"></td></tr>
+      <tr><td>厚生年金</td><td><input type="number" id="pensionInput" value="0" class="deduction-input"></td></tr>
+      <tr><td>雇用保険</td><td><input type="number" id="employmentInsuranceInput" value="0" class="deduction-input"></td></tr>
       <tr><td><b>控除合計</b></td><td id="deduction-total">0円</td></tr>
 
       <tr><th colspan="2">差引支給額</th></tr>
@@ -51,18 +52,17 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        // --- HTML要素をまとめて取得 ---
         const instructorSelect = document.getElementById('instructor-selector');
         const monthSelect = document.getElementById('month-selector');
         const viewButton = document.getElementById('view-button');
-        
-        // --- 講師選択プルダウンを生成 ---
+
+        // --- 講師プルダウン生成 ---
         const defaultOption = document.createElement('option');
         defaultOption.value = "";
         defaultOption.textContent = "-- 講師を選択 --";
         instructorSelect.appendChild(defaultOption);
         masterData.instructors.forEach(function(instructor) {
-          if(instructor.role === '講師') {
+          if (instructor.role === '講師') {
             const option = document.createElement('option');
             option.value = instructor.id;
             option.textContent = instructor.name;
@@ -70,7 +70,7 @@
           }
         });
 
-        // --- 「表示」ボタンの処理 ---
+        // --- 表示ボタン処理 ---
         viewButton.addEventListener('click', function() {
           const targetInstructorId = instructorSelect.value;
           const targetYearMonth = monthSelect.value;
@@ -79,7 +79,7 @@
             alert('講師と対象月を両方選択してください。');
             return;
           }
-          
+
           google.script.run
             .withSuccessHandler(function(salaryData) {
               if (salaryData.error) {
@@ -89,67 +89,85 @@
               const monthly = salaryData.monthly;
               const yearly = salaryData.yearly;
 
-              // 画面の数値を更新
-              document.getElementById('monthly-total').textContent = monthly.total + "円";
-              document.getElementById('yearly-total').textContent = yearly.total + "円";
-              document.getElementById('koma-pay').textContent = monthly.komaSalary + "円";
-              document.getElementById('task-pay').textContent = monthly.taskSalary + "円";
-              document.getElementById('transport-pay').textContent = monthly.transportationFee + "円";
-              document.getElementById('gross-pay').textContent = monthly.total + "円";
-              
-              // 税額と手取りの計算
-              const taxInput = document.getElementById('tax-input');
-              const tax = Number(taxInput.value) || 0;
-              const net = monthly.total - tax;
-              document.getElementById('deduction-total').textContent = tax + "円";
-              document.getElementById('net-pay').textContent = net + "円";
+              // 表示更新関数
+              function updateDisplay() {
+                // 支給
+                document.getElementById('monthly-total').textContent = monthly.total + "円";
+                document.getElementById('yearly-total').textContent = yearly.total + "円";
+                document.getElementById('koma-pay').textContent = monthly.komaSalary + "円";
+                document.getElementById('task-pay').textContent = monthly.taskSalary + "円";
+                document.getElementById('transport-pay').textContent = monthly.transportationFee + "円";
+                document.getElementById('gross-pay').textContent = monthly.total + "円";
 
-              // 税額が変更されたら手取りも再計算
-              taxInput.oninput = function() {
-                const newTax = Number(taxInput.value) || 0;
-                const newNet = monthly.total - newTax;
-                document.getElementById('deduction-total').textContent = newTax + "円";
-                document.getElementById('net-pay').textContent = newNet + "円";
-              };
+                // 控除合計計算
+                let totalDeduction = 0;
+                document.querySelectorAll('.deduction-input').forEach(input => {
+                  totalDeduction += Number(input.value) || 0;
+                });
+
+                // 手取り計算
+                const net = monthly.total - totalDeduction;
+                document.getElementById('deduction-total').textContent = totalDeduction + "円";
+                document.getElementById('net-pay').textContent = net + "円";
+              }
+
+              // 初期表示
+              updateDisplay();
+
+              // 入力変更イベント
+              document.querySelectorAll('.deduction-input').forEach(input => {
+                input.oninput = updateDisplay;
+              });
             })
             .getSalaryDataForManagement(targetInstructorId, targetYearMonth);
         });
 
-        // --- ログアウトボタンの処理 ---
+        // --- ログアウト ---
         document.getElementById('logout-btn').addEventListener('click', function() {
           google.script.run.withSuccessHandler(function() {
             window.top.location.href = appUrl;
           }).logout();
         });
 
-        // --- PDF出力ボタンの処理 ---
-        document.getElementById('pdf-button').addEventListener('click', function(){
-            const teacher = instructorSelect.value;
-            const month = monthSelect.value;
-            const tax = document.getElementById("tax-input").value;
-            if(!teacher || !month){
-                alert('講師と対象月を選択してください。');
-                return;
-            }
-            google.script.run.withSuccessHandler(function(url) {
-              window.open(url, "_blank");
-            }).generatePayslipPdf(teacher, month, tax);
+        // --- PDF出力 ---
+        document.getElementById('pdf-button').addEventListener('click', function() {
+          const teacher = instructorSelect.value;
+          const month = monthSelect.value;
+
+          // 各控除をまとめる
+          const deductions = {
+            incomeTax: Number(document.getElementById('incomeTaxInput').value) || 0,
+            residentTax: Number(document.getElementById('residentTaxInput').value) || 0,
+            healthInsurance: Number(document.getElementById('healthInsuranceInput').value) || 0,
+            pension: Number(document.getElementById('pensionInput').value) || 0,
+            employmentInsurance: Number(document.getElementById('employmentInsuranceInput').value) || 0,
+          };
+
+          if (!teacher || !month) {
+            alert('講師と対象月を選択してください。');
+            return;
+          }
+
+          google.script.run.withSuccessHandler(function(url) {
+            window.open(url, "_blank");
+          }).generatePayslipPdf(teacher, month, deductions);
         });
 
-        // --- 締め処理ボタンの処理 ---
-        document.getElementById('finalize-button').addEventListener('click', function(){
-            const month = monthSelect.value;
-            if(!month){
-                alert('対象月を選択してください。');
-                return;
-            }
-            if(confirm(month + 'の給与を締め切ります。よろしいですか？')){
-                google.script.run.withSuccessHandler(function(msg) {
-                  alert(msg);
-                }).closeMonth(month);
-            }
+        // --- 締め処理 ---
+        document.getElementById('finalize-button').addEventListener('click', function() {
+          const month = monthSelect.value;
+          if (!month) {
+            alert('対象月を選択してください。');
+            return;
+          }
+          if (confirm(month + 'の給与を締め切ります。よろしいですか？')) {
+            google.script.run.withSuccessHandler(function(msg) {
+              alert(msg);
+            }).closeMonth(month);
+          }
         });
       });
     </script>
   </body>
 </html>
+

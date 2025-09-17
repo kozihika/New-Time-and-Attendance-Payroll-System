@@ -9,16 +9,23 @@
     <p>対象月: <?= data.month ?></p>
 
     <table border="1" cellpadding="5" cellspacing="0">
+      <!-- 支給 -->
       <tr><th colspan="2">支給</th></tr>
       <tr><td>コマ給</td><td><?= data.komaPay ?>円</td></tr>
       <tr><td>事務作業給</td><td><?= data.jimuPay ?>円</td></tr>
       <tr><td>交通費</td><td><?= data.transport ?>円</td></tr>
       <tr><td><b>支給合計</b></td><td><?= data.grossPay ?>円</td></tr>
 
+      <!-- 控除 -->
       <tr><th colspan="2">控除</th></tr>
-      <tr><td>源泉税額</td><td><?= data.tax ?>円</td></tr>
-      <tr><td><b>控除合計</b></td><td><?= data.tax ?>円</td></tr>
+      <tr><td>所得税</td><td><?= data.deductions.incomeTax ?>円</td></tr>
+      <tr><td>住民税</td><td><?= data.deductions.residentTax ?>円</td></tr>
+      <tr><td>健康保険</td><td><?= data.deductions.healthInsurance ?>円</td></tr>
+      <tr><td>厚生年金</td><td><?= data.deductions.pension ?>円</td></tr>
+      <tr><td>雇用保険</td><td><?= data.deductions.employmentInsurance ?>円</td></tr>
+      <tr><td><b>控除合計</b></td><td><?= data.deductionTotal ?>円</td></tr>
 
+      <!-- 差引支給額 -->
       <tr><th colspan="2">差引支給額</th></tr>
       <tr><td colspan="2"><b><?= data.net ?>円</b></td></tr>
     </table>
