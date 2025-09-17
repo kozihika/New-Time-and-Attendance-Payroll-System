@@ -35,8 +35,20 @@
 
       <tr><th colspan="2">控除</th></tr>
       <tr>
-        <td>源泉税額</td>
-        <td><input type="number" id="tax-input" value="0"></td>
+        <td>住民税</td>
+        <td><input type="number" id="residentTaxInput" value="0" class="deduction-input"></td>
+      </tr>
+      <tr>
+        <td>健康保険</td>
+        <td><input type="number" id="healthInsuranceInput" value="0" class="deduction-input"></td>
+      </tr>
+      <tr>
+        <td>厚生年金</td>
+        <td><input type="number" id="pensionInput" value="0" class="deduction-input"></td>
+      </tr>
+      <tr>
+        <td>雇用保険</td>
+        <td><input type="number" id="employmentInsuranceInput" value="0" class="deduction-input"></td>
       </tr>
       <tr><td><b>控除合計</b></td><td id="deduction-total">0円</td></tr>
 
@@ -71,6 +83,7 @@
         });
 
         // --- 「表示」ボタンの処理 ---
+        // --- 「表示」ボタンの処理 ---
         viewButton.addEventListener('click', function() {
           const targetInstructorId = instructorSelect.value;
           const targetYearMonth = monthSelect.value;
@@ -79,42 +92,50 @@
             alert('講師と対象月を両方選択してください。');
             return;
           }
-          
-          google.script.run
-            .withSuccessHandler(function(salaryData) {
-              if (salaryData.error) {
-                alert(salaryData.error);
-                return;
-              }
-              const monthly = salaryData.monthly;
-              const yearly = salaryData.yearly;
+      
+        google.script.run
+          .withSuccessHandler(function(salaryData) {
+            if (salaryData.error) {
+              alert(salaryData.error);
+              return;
+            }
+            const monthly = salaryData.monthly;
+            const yearly = salaryData.yearly;
 
-              // 画面の数値を更新
+          // --- 金額を更新する専門の関数 ---
+            function updateDisplay() {
+            // 支給項目の表示
               document.getElementById('monthly-total').textContent = monthly.total + "円";
               document.getElementById('yearly-total').textContent = yearly.total + "円";
               document.getElementById('koma-pay').textContent = monthly.komaSalary + "円";
               document.getElementById('task-pay').textContent = monthly.taskSalary + "円";
               document.getElementById('transport-pay').textContent = monthly.transportationFee + "円";
               document.getElementById('gross-pay').textContent = monthly.total + "円";
-              
-              // 税額と手取りの計算
-              const taxInput = document.getElementById('tax-input');
-              const tax = Number(taxInput.value) || 0;
-              const net = monthly.total - tax;
-              document.getElementById('deduction-total').textContent = tax + "円";
-              document.getElementById('net-pay').textContent = net + "円";
 
-              // 税額が変更されたら手取りも再計算
-              taxInput.oninput = function() {
-                const newTax = Number(taxInput.value) || 0;
-                const newNet = monthly.total - newTax;
-                document.getElementById('deduction-total').textContent = newTax + "円";
-                document.getElementById('net-pay').textContent = newNet + "円";
-              };
-            })
-            .getSalaryDataForManagement(targetInstructorId, targetYearMonth);
+            // 全ての控除入力欄から値を取得して合計する
+              let totalDeduction = 0;
+              const deductionInputs = document.querySelectorAll('.deduction-input');
+              deductionInputs.forEach(input => {
+                totalDeduction += Number(input.value) || 0;
+              });
+             const netPay = monthly.total - totalDeduction;
+
+              document.getElementById("deduction-total").textContent = totalDeduction + "円";
+              document.getElementById("netPay").textContent = netPay + "円";
+            }
+
+          // --- 最初に一度、表示を更新 ---
+            updateDisplay();
+
+          // --- 全ての控除入力欄に変更があったら、リアルタイムで再計算 ---
+            document.querySelectorAll('.deduction-input').forEach(input => {
+              input.oninput = updateDisplay;
+            });
+          })
+          .getSalaryDataForManagement(targetInstructorId, targetYearMonth);
         });
 
+      
         // --- ログアウトボタンの処理 ---
         document.getElementById('logout-btn').addEventListener('click', function() {
           google.script.run.withSuccessHandler(function() {
@@ -149,7 +170,16 @@
                 }).closeMonth(month);
             }
         });
-      });
+            .withSuccessHandler(function(salaryData) {
+              if (salaryData.error) {
+                alert(salaryData.error);
+                return;
+              } 
+              const monthly = salaryData.monthly;
+              const yearly = salaryData.yearly;
+
+              // 画面の数値を更新
+              
     </script>
   </body>
 </html>
