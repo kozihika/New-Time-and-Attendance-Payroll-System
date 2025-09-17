@@ -176,6 +176,50 @@ function getMasterData(){
 
 
 /**
+ * 給与明細のPDFを生成し、そのURLを返す
+ * @param {string} teacherId 対象の講師ID
+ * @param {string} month 'YYYY-MM'形式の対象月
+ * @param {number} tax 源泉徴収税額
+ * @return {string} 生成されたPDFファイルのURL
+ */
+function generatePayslipPdf(teacherId, month, tax) {
+  // 1. まず、getSalaryDataForManagementを呼び出して給与データを取得
+  const salaryData = getSalaryDataForManagement(teacherId, month);
+  
+  if (salaryData.error) {
+    throw new Error(salaryData.error);
+  }
+  
+  const monthly = salaryData.monthly;
+  const instructor = getMasterData().instructors.find(inst => String(inst.id) == String(teacherId));
+
+  // 2. PDFテンプレートに渡すための、完成版データオブジェクトを作成
+  const dataForPdf = {
+    teacher: instructor.name,
+    month: month,
+    komaPay: monthly.komaSalary,
+    jimuPay: monthly.taskSalary,
+    transport: monthly.transportationFee,
+    grossPay: monthly.total,
+    tax: tax,
+    net: monthly.total - tax
+  };
+
+  // 3. HTMLテンプレートを読み込み、データを埋め込む
+  const template = HtmlService.createTemplateFromFile('payslip_template');
+  template.data = dataForPdf;
+  const htmlContent = template.evaluate().getContent();
+  
+  // 4. HTMLをPDFに変換し、Googleドライブに保存
+  const pdfBlob = Utilities.newBlob(htmlContent, MimeType.HTML, `${month}_${instructor.name}_給与明細.pdf`).getAs(MimeType.PDF);
+  const file = DriveApp.createFile(pdfBlob);
+  
+  // 5. 作成したPDFのURLを返す
+  return file.getUrl();
+}
+
+
+/**
  * 塾長専用画面の給与データを計算して返す
  * @param {string} targetInstructorId 対象の講師ID
  * @param {string} targetYearMonth 'YYYY-MM'形式の対象月 (例: '2025-08')
@@ -198,7 +242,7 @@ function getSalaryDataForManagement(targetInstructorId, targetYearMonth) {
   let yearlyTaskMinutes = 0;
   let yearlyTransportationFee = 0;
   
-  const instructor = masterData.instructors.find(inst => inst.id == targetInstructorId);
+  const instructor = masterData.instructors.find(inst => String(inst.id) == String(targetInstructorId));
   if (!instructor) { return { error: "講師が見つかりません。" }; }
 
   let yearlyTaskStartTime = null; //なぜ変数を分けるかチェック
