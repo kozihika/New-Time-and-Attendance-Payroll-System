@@ -101,205 +101,157 @@
           .recordClockIn(loggedInUser);
       });
 
-     document.getElementById('clock-out-btn').addEventListener('click', function() {
+      document.getElementById('clock-out-btn').addEventListener('click', function() {
 
-        // 1. ポップアップで使うHTML要素を取得
-        const periodSelector = document.getElementById('period-selector');
-        const checklistContainer = document.getElementById('task-checklist');
-        const classLevels = masterData.classLevels;
+          // 1. ポップアップで使うHTML要素を取得
+          const periodSelector = document.getElementById('period-selector');
+          const checklistContainer = document.getElementById('task-checklist');
+          const classLevels = masterData.classLevels;
 
-        // 2. 時間割リストを更新するための関数を定義
-        function updateScheduleList() {
-          const selectedPeriod = periodSelector.value;
-          // masterData.scheduleの中から、選択された期間の授業リストを取得
-          const schedule = masterData.schedule[selectedPeriod] || [];
+          // 2. 時間割リストを更新するための関数を定義
+          function updateScheduleList() {
+            const selectedPeriod = periodSelector.value;
+            // masterData.scheduleの中から、選択された期間の授業リストを取得
+            const schedule = masterData.schedule[selectedPeriod] || [];
+            
+            let tasksHtml = '';
+            
+            // 授業レベルの選択肢を準備
+            let levelOptions = '<option value="">-- 学年を選択 --</option>';
+            classLevels.forEach((level) => {
+              levelOptions += `<option value="${level.level}">${level.level}</option>`;
+            });
+
+            // 取得した授業リストでチェックリストを生成
+            schedule.forEach((classItem) => {
+              tasksHtml += `
+                <div class="task-item" data-task-name="${classItem.name}">
+                    <label>${classItem.name} (${classItem.startTime}-${classItem.endTime})</label>
+                    <select class="level-select">
+                        ${levelOptions}
+                    </select>
+                </div>
+                <hr>
+              `;
+            });
+            checklistContainer.innerHTML = tasksHtml;
+          }
+
+          // ポップアップが開かれた時に、最初の時間割リストを表示する
+          updateScheduleList(); 
+
+          // 期間プルダウンが変更されたら、時間割リストを更新する
+          periodSelector.addEventListener('change', updateScheduleList);
           
-          let tasksHtml = '';
-          
-          // 授業レベルの選択肢を準備
-          let levelOptions = '<option value="">-- 学年を選択 --</option>';
-          classLevels.forEach((level) => {
-            levelOptions += `<option value="${level.level}">${level.level}</option>`;
-          });
 
-          // 取得した授業リストでチェックリストを生成
-          schedule.forEach((classItem) => {
-            tasksHtml += `
-              <div class="task-item" data-task-name="${classItem.name}">
-                  <label>${classItem.name} (${classItem.startTime}-${classItem.endTime})</label>
-                  <select class="level-select">
-                      ${levelOptions}
-                  </select>
-              </div>
-              <hr>
-            `;
-          });
-          checklistContainer.innerHTML = tasksHtml;
-        }
-
-        // ポップアップが開かれた時に、最初の時間割リストを表示する
-        updateScheduleList(); 
-
-        // 期間プルダウンが変更されたら、時間割リストを更新する
-        periodSelector.addEventListener('change', updateScheduleList);
+          // 最後にポップアップを表示する
+          document.getElementById('check-out-modal').style.display = 'block';
+        });
+    /**
+     * 「登録完了」ボタンが押されたら、打刻履歴に担当授業と時刻を打刻、おみくじを引けるようにする
+     */
+      document.getElementById('submit-checkout-btn').addEventListener('click', function() {
+        //意図していない変更を防ぐためにquerySelectorで統一
+        //task-itemはhtmlの授業選択欄
+        //task-checklistはtask-itemを外包する箱
+        const checklistContainer = document.querySelector('#task-checklist');
+        const classRows = checklistContainer.querySelectorAll('.task-item');
+        const selectedPeriod = document.getElementById("period-selector").value;  
+        const taughtClasses = [];
         
+        // 各時限ごとの授業レベルをチェック
+        classRows.forEach(row => {
+          // data-task-nameから授業名を取得（datasetでdata-task-nameで授業時限を定義している）　n時限目の処理
+          const className = row.dataset.taskName;
+          // ドロップダウンで選択された学年を取得　optionのvalueを取り出す
+          const selectedLevel = row.querySelector('.level-select').value;
+          
+          // 学年が選択されている授業（空文字でない）だけをtaughtClasses配列に追加
+          if (selectedLevel) {
+            taughtClasses.push({
+              className: className,//授業時限
+              level: selectedLevel//担当学年
+            });
+          }
+        });
+          
+        // GAS側のrecordTaughtClasses関数を呼び出す
+      google.script.run
+        .withSuccessHandler(function(fortuneResult) {
+          // --- 共通の分岐設定 ---
+          let bgColor = "#fff";
+          let icon = "❓";
+          let showAnim = "animate__fadeInDown";
 
-        // 最後にポップアップを表示する
-        document.getElementById('check-out-modal').style.display = 'block';
-      });
-/**
- * 「登録完了」ボタンが押されたら、打刻履歴に担当授業と時刻を打刻する
- * @param {} toughClasses 
- * @param {}  
- * @param {}
- */
-document.getElementById('submit-checkout-btn').addEventListener('click', function() {
-  //意図していない変更を防ぐためにquerySelectorで統一
-  //task-itemはhtmlの授業選択欄
-  //task-checklistはtask-itemを外包する箱
-  const checklistContainer = document.querySelector('#task-checklist');
-  const classRows = checklistContainer.querySelectorAll('.task-item');
-  const selectedPeriod = document.getElementById("period-selector").value;  
-  const taughtClasses = [];
-  
-  // 各時限ごとの授業レベルをチェック
-  classRows.forEach(row => {
-    // data-task-nameから授業名を取得（datasetでdata-task-nameで授業時限を定義している）　n時限目の処理
-    const className = row.dataset.taskName;
-    // ドロップダウンで選択された学年を取得　optionのvalueを取り出す
-    const selectedLevel = row.querySelector('.level-select').value;
-    
-    // 学年が選択されている授業（空文字でない）だけをtaughtClasses配列に追加
-    if (selectedLevel) {
-      taughtClasses.push({
-        className: className,//授業時限
-        level: selectedLevel//担当学年
-      });
-    }
-  });
-  
-  // GAS側のrecordTaughtClasses関数を呼び出す
-  google.script.run
-    .withSuccessHandler(function(fortuneResult) {
-      Swal.fire({
-        title: '✨ 今日の運勢 ✨',
-        html: `
-          <div style="text-align:center;">
-            <img src="おみくじ筒.png" alt="おみくじの筒" style="width:100px; margin-bottom:10px; animation: shake 0.6s;">
-            <p><strong>${fortuneResult.fortune}</strong></p>
-            <p>${fortuneResult.message || ''}</p>
-            <p>ポイント: ${fortuneResult.points || 0}</p>
-          </div>
-        `,
-        confirmButtonText: 'OK',
-        showClass: {
-          popup: 'animate__animated animate__fadeInDown'
-        },
-        hideClass: {
-          popup: 'animate__animated animate__fadeOutUp'
+          if (fortuneResult.fortune === "大吉") {
+          bgColor = "#fff8dc";
+          icon = "🎍✨";
+          showAnim = "animate__tada";
+        } else if (fortuneResult.fortune === "吉") {
+          bgColor = "#e0ffe0";
+          icon = "🍵🌸";
+          showAnim = "animate__fadeInUp";
+        } else if (fortuneResult.fortune === "凶") {
+          bgColor = "#ffe0e0";
+          icon = "👺🌀";
+          showAnim = "animate__shakeX";
         }
-      }).then(() => {
-        // モーダルを閉じたら状態更新 & ページリロード
-        currentStatus = "reported";
-        updateButtonStates(currentStatus);
-        window.top.location.href = appUrl;
-      });
-    })
-    .withFailureHandler(function(error) {
-      // 失敗したらエラーメッセージを表示
-      alert("エラーが発生しました: " + error.message);
-    })
-    .recordTaughtClasses(taughtClasses, selectedPeriod);
-})
 
-
-// 作業開始ボタンが押された時の処理
-  document.querySelector('#task-start-btn').addEventListener('click', ()=>{
-    google.script.run
-      .withSuccessHandler((response)=>{
-        alert(response);
-        currentStatus = 'on-task';
-        updateButtonStates(currentStatus); 
+        Swal.fire({
+          title: `${icon} ${fortuneResult.fortune} ${icon}`,
+          html: `
+            <div style="text-align:center; font-family: 'Yuji Syuku', serif;">
+              <p style="font-size:18px;"><strong>${fortuneResult.message || ''}</strong></p>
+              <p>運勢ポイント: ${fortuneResult.points || 0}</p>
+            </div>
+          `,
+          confirmButtonText: '完了',
+          background: bgColor,
+          showClass: { popup: `animate__animated ${showAnim}` },
+          hideClass: { popup: 'animate__animated animate__fadeOutUp' }
+          }).then(() => {
+            currentStatus = "reported";
+            updateButtonStates(currentStatus);
+            window.top.location.href = appUrl;
+          });
+        })
+        .withFailureHandler(function(error) {
+          alert("エラーが発生しました: " + error.message);
+        })
+        .recordTaughtClasses(taughtClasses, selectedPeriod);
       })
-      .recordTaskStart(loggedInUser);
-  });
-
-//　作業終了ボタンが押された時の処理
-  document.querySelector('#task-end-btn').addEventListener('click', ()=>{
-    google.script.run
-      .withSuccessHandler((response)=>{
-        alert(response);
-        currentStatus = "working"
-        updateButtonStates(currentStatus);
-      })
-      .recordTaskEnd(loggedInUser);
-
-  });
-
-// 休憩開始ボタンが押された時の処理
-  document.querySelector('#start-break-btn').addEventListener('click', ()=>{
-    google.script.run
-      .withSuccessHandler((response)=>{
-        alert(response);
-        currentStatus = 'on-break'; // 状態を「勤務中」に更新
-        updateButtonStates(currentStatus); 
-      })
-      .recordBreakStart(loggedInUser);
-  });
-
-// 休憩終了ボタンが押された時の処理
-document.querySelector("#end-break-btn").addEventListener("click", ()=>{
-  google.script.run
-    .withSuccessHandler((response)=>{
-      alert(response);
-      currentStatus = 'working'
-      updateButtonStates(currentStatus);
-    })
-    .recordBreakEnd(loggedInUser);
-});
-
-//交通費修正ボタンが押された時の処理
-document.getElementById("update-transportation-fee-btn").addEventListener("click", ()=>{
-  const updatedFee = document.getElementById("transportation-fee").value;
-  google.script.run
-    .withSuccessHandler((response)=>{
-      alert(response);
-    })
-    .updateTransportationFee(updatedFee);
-})
 
 
+      function updateButtonStates(status){
+          // statusに応じて、押せるボタンだけを有効化する
+        if (status === 'not-clocked-in') {
+          document.getElementById('clock-in-btn').disabled = false;
+          document.getElementById("logout-btn").disabled = false;
+        } else if (status === 'working') {
+          document.getElementById('clock-in-btn').disabled = true;
+          document.getElementById('end-break-btn').disabled = true;
+          document.getElementById('task-end-btn').disabled = true;
+          document.getElementById("update-transportation-fee-btn").disabled = false;
+          document.getElementById('clock-out-btn').disabled = false;
+          document.getElementById('task-start-btn').disabled = false;
+          document.getElementById('start-break-btn').disabled = false;
+        } else if (status === 'on-task') {
+          document.getElementById('clock-out-btn').disabled = true;
+          document.getElementById('task-start-btn').disabled = true;
+          document.getElementById('start-break-btn').disabled = true;
+          document.getElementById("logout-btn").disabled = true;
+          document.getElementById('task-end-btn').disabled = false;
+        } else if (status === 'on-break') {
+          document.getElementById('clock-out-btn').disabled = true;
+          document.getElementById('task-start-btn').disabled = true;
+          document.getElementById('start-break-btn').disabled = true;
+          document.getElementById("logout-btn").disabled = true;
+          document.getElementById('end-break-btn').disabled = false;
+        }else if (status === "reported") {
+          document.getElementById("logout-btn").disabled = false;
 
-function updateButtonStates(status){
-    // statusに応じて、押せるボタンだけを有効化する
-  if (status === 'not-clocked-in') {
-    document.getElementById('clock-in-btn').disabled = false;
-    document.getElementById("logout-btn").disabled = false;
-  } else if (status === 'working') {
-    document.getElementById('clock-in-btn').disabled = true;
-    document.getElementById('end-break-btn').disabled = true;
-    document.getElementById('task-end-btn').disabled = true;
-    document.getElementById("update-transportation-fee-btn").disabled = false;
-    document.getElementById('clock-out-btn').disabled = false;
-    document.getElementById('task-start-btn').disabled = false;
-    document.getElementById('start-break-btn').disabled = false;
-  } else if (status === 'on-task') {
-    document.getElementById('clock-out-btn').disabled = true;
-    document.getElementById('task-start-btn').disabled = true;
-    document.getElementById('start-break-btn').disabled = true;
-    document.getElementById("logout-btn").disabled = true;
-    document.getElementById('task-end-btn').disabled = false;
-  } else if (status === 'on-break') {
-    document.getElementById('clock-out-btn').disabled = true;
-    document.getElementById('task-start-btn').disabled = true;
-    document.getElementById('start-break-btn').disabled = true;
-    document.getElementById("logout-btn").disabled = true;
-    document.getElementById('end-break-btn').disabled = false;
-  }else if (status === "reported") {
-    document.getElementById("logout-btn").disabled = false;
-
-  }
-}
+        }
+      }
 
 
 //  ログアウトボタンが押された時の処理

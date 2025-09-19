@@ -1,59 +1,142 @@
 <style>
+  /* Google Fontsから和風フォントを読み込む */
+  @import url('https://fonts.googleapis.com/css2?family=Kiwi+Maru&family=Yuji+Syuku&display=swap');
+
   body {
     margin: 30px;
-    color: black;
+    color: #3a2e2e; /* 文字色を濃い茶色に */
+    background-color: #f5f1e8; /* 背景を和紙のような色に */
+    background-image: url('https://www.transparenttextures.com/patterns/washi.png'); /* 和紙のテクスチャを追加 */
+    font-family: 'Kiwi Maru', serif; /* 全体のフォントを丸みのあるものに */
   }
+
+  /* 見出しのスタイル */
+  h1, h2, h3 {
+    font-family: 'Yuji Syuku', serif; /* 見出しは毛筆感のあるフォントに */
+    color: #5a4a4a;
+    border-bottom: 2px solid #a8937a;
+    padding-bottom: 10px;
+  }
+  
+  /* テーブルの和風デザイン */
   table {
     border-collapse: collapse;
     width: 100%;
     margin: 20px 0;
+    border: 1px solid #a8937a;
   }
-  .btn {
-    margin: 20px 0;
-    width: 150px;
+  
+  th, td {
+    border: 1px solid #a8937a;
+    padding: 12px;
+    text-align: left;
   }
-  .btn-frame {
+
+  th {
+    background-color: #e6dfd6; /* ヘッダーの背景色 */
+    font-weight: bold;
+  }
+
+  /* コンテナの共通スタイル */
+  .login-container, .welcome-message, .action-buttons, .transportation-fee-form, #check-out-modal .modal-content {
+    background-color: rgba(255, 255, 255, 0.7); /* 半透明の白背景 */
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+
+  /* ボタンの共通和風デザイン（木札風） */
+  button {
+    font-family: 'Kiwi Maru', serif;
+    background-color: #8b745b; /* 木の色 */
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 4px #5a4a4a; /* 影をつけて立体感を出す */
+    transition: all 0.2s ease;
+    margin: 5px;
+  }
+
+  button:hover:not(:disabled) {
+    background-color: #a8937a;
+    transform: translateY(-2px); /* ホバー時に少し浮き上がる */
+    box-shadow: 0 6px #5a4a4a;
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(2px); /* クリック時に沈む */
+    box-shadow: 0 2px #5a4a4a;
+  }
+
+  button:disabled {
+    background-color: #c9bdae;
+    cursor: not-allowed;
+    box-shadow: 0 4px #a89d90;
+  }
+
+  /* ログアウトボタンを少し変える（判子風） */
+  #logout-btn {
+    background-color: #c76f6f; /* 朱色 */
+    box-shadow: 0 4px #8f4b4b;
+  }
+  #logout-btn:hover:not(:disabled) {
+    background-color: #d68a8a;
+  }
+
+
+  /* 入力欄のデザイン */
+  input[type="text"], input[type="password"], input[type="number"], input[type="month"], select {
+    padding: 10px;
+    border: 1px solid #a8937a;
+    border-radius: 5px;
+    background-color: #fdfaf4;
+    font-family: 'Kiwi Maru', serif;
+  }
+
+  /* ログイン画面専用 */
+  .login-container {
+    max-width: 400px;
+    margin: 50px auto;
     text-align: center;
   }
 
-  #login-btn {
-    background-color: #5dca88;
-    box-shadow: 0 5px #1a7940;  
+  /* ホーム画面専用 */
+  .action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
-  #login-btn: active {
-    box-shadow: none;
-    position: relative;
-    top: 5px;
-  }
-
+  /* 退勤モーダルのデザイン */
   #check-out-modal {
     display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
   }
 
-  /* 筒が震えるアニメーション */
-  @keyframes shake {
-    0% { transform: translate(0, 0); }
-    25% { transform: translate(-2px, 2px); }
-    50% { transform: translate(2px, -2px); }
-    75% { transform: translate(-2px, 2px); }
-    100% { transform: translate(0, 0); }
+  #check-out-modal .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 10px;
   }
-
-  .shake-animation {
-    animation: shake 0.5s;
-  }
-
-  /* 結果がスッと出てくるアニメーション */
-  #fortune-result {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.5s, transform 0.5s;
-  }
+  
 
   #fortune-result.show {
     opacity: 1;
     transform: translateY(0);
   }
-
 </style>
