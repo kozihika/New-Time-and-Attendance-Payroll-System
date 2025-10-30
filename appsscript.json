@@ -1,8 +1,8 @@
 {
   "timeZone": "Asia/Tokyo",
   "webapp": {
-    "access": "ANYONE",
-    "executeAs": "USER_ACCESSING"
+    "executeAs": "USER_ACCESSING",
+    "access": "ANYONE"
   },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8"

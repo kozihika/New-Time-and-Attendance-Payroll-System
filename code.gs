@@ -84,19 +84,38 @@ const authenticateUser = (userId, password) =>{
   return false;
 }
 
+/**
+ * 打刻処理を共通で受け持つ関数
+ * @param {string} loggedInUser 講師ID
+ * @param {string} actionType 打刻種別 (例: "出勤", "休憩開始")
+ * @param {string} message フロントエンドに返す成功メッセージ
+ */
+function recordAction(loggedInUser, actionType, message){
+  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('打刻履歴');
+  const timestamp = new Date(); 
+  const yearMonth = Utilities.formatDate(timestamp, "JST", "yyyy-MM");
+  if (isMonthClosed(yearMonth)) {
+    return `【エラー】${yearMonth}は締め処理済みのため、新しい打刻は記録できません。`;
+  }
+  
+  logSheet.appendRow([loggedInUser, actionType, timestamp]);
+  return message;
+}
 
 /**
  * 今日の出勤記録を見つけ、交通費を更新する
  * @param {string} fee 入力された新しい交通費
+ * @param {string} logInstructorId　講師ID
  */
-
 function updateTransportationFee(fee){
   const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
   const data = logSheet.getDataRange().getValues();
+  const timestamp = new Date();
 
   for(let i = data.length - 1; i >= 1; i--){
     const row = data[i];
     const actionType = row[1];
+ 
 
     if(actionType=="出勤"){
       logSheet.getRange(i+1, 6).setValue(fee);
@@ -153,7 +172,7 @@ function getMasterData(){
   scheduleSheetValues.forEach((row)=>{
     const period = row[3];
     const classInfo = { name: row[0], startTime: Utilities.formatDate(new Date(row[1]), "JST", "HH:mm"), endTime: Utilities.formatDate(new Date(row[2]), "JST", "HH:mm") };
-  
+  //通常と季節講習を分けるため
      if (!scheduleByPeriod[period]) {
       scheduleByPeriod[period] = [];
     }
@@ -209,9 +228,9 @@ function getMasterData(){
       jimuPay: monthly.taskSalary,
       transport: monthly.transportationFee,
       grossPay: monthly.total,
-      deductions: deductions,              // ← 各控除の内訳
-      deductionTotal: totalDeduction,      // ← 合計
-      net: monthly.total - totalDeduction  // ← 手取り
+      deductions: deductions,              // 各控除の内訳
+      deductionTotal: totalDeduction,      // 控除の合計
+      net: monthly.total - totalDeduction  // 手取り
     };
 
     // 3. HTMLテンプレートを読み込み、データを埋め込む
@@ -220,6 +239,7 @@ function getMasterData(){
     const htmlContent = template.evaluate().getContent();
     
     // 4. HTMLをPDFに変換し、Googleドライブに保存
+    //Blobという何でも入れれる箱に入れることで、フォーマットの違いを関係なく扱える
     const pdfBlob = Utilities.newBlob(htmlContent, MimeType.HTML, `${month}_${instructor.name}_給与明細.pdf`).getAs(MimeType.PDF);
     const file = DriveApp.createFile(pdfBlob);
     
@@ -237,7 +257,15 @@ function getMasterData(){
 function getSalaryDataForManagement(targetInstructorId, targetYearMonth) {
   const masterData = getMasterData();
   const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
+  const closeManagementSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("締め管理");
+  const closedMonthsData = closeManagementSheet.getDataRange().getValues();
   const logs = logSheet.getDataRange().getValues();
+  //someは一致するものが一つでもあればtrue
+  const isClosed = closedMonthsData.some(row => row[0] === targetYearMonth);
+  if (isClosed) {
+    // もし締め済みだったら、エラーメッセージを返して処理を中断する
+    return { error: `【エラー】${targetYearMonth} は締め処理済みのため、再計算できません。` };
+  }
 
   // 対象年と月を数値として取得
   const targetYear = parseInt(targetYearMonth.split('-')[0]);
@@ -328,6 +356,8 @@ function getSalaryDataForManagement(targetInstructorId, targetYearMonth) {
     }
   };
 }
+
+
 /**
  * 指定された月を「締め処理済み」として記録する
  * @param {string} yearMonth 'YYYY-MM'形式の対象月
@@ -339,13 +369,12 @@ function closeMonth(targetYearMonth) {
 }
 
 
-
 /**
  * 占いを行い、結果を運勢スコアボードに記録して返す
- * @param {string} instructorId 占いを引く講師のID
+ * @param {string} loggedInUser占いを引く講師のID
  * @return {Object} 占いの結果（メッセージとポイント）
  */
-function getFortune(instructorId) {
+function getFortune(loggedInUser) {
   // --- 1. 必要なシートを取得する ---
   const fortuneSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("占いマスター");
   const scoreboardSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("運勢スコアボード");
@@ -366,7 +395,7 @@ function getFortune(instructorId) {
   // --- 4. 運勢スコアボードを更新する ---
   const scoreboardData = scoreboardSheet.getDataRange().getValues();
   for (let i = 1; i < scoreboardData.length; i++) { // 1行目はヘッダーなので2行目から
-    if (scoreboardData[i][0] == instructorId) { // A列の講師IDが一致したら
+    if (scoreboardData[i][0] == loggedInUser) { // A列の講師IDが一致したら
       const currentPoints = scoreboardData[i][1]  // B列の現在のポイント (空なら0)
       const currentCount = scoreboardData[i][2] ; // C列の現在の回数 (空なら0)
       
@@ -401,80 +430,7 @@ function resetMonthlyFortunes() {
   }
 }
 
-/**
- * 出勤打刻を記録する
- * @param {string} instructorId 選択された講師のID
- */
-function recordClockIn(instructorId) {
-  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
-  const timestamp = new Date(); // 現在時刻
 
-  // 勤怠ログシートに新しい行を追加して書き込む
-  logSheet.appendRow([instructorId,"出勤", timestamp]);
-
-  return "出勤打刻を記録しました。"; // フロントエンドに返すメッセージ
-}
-
-/**
- * 退勤打刻を記録する
- * @param {string} instructorId 選択された講師のID
- */
-function recordClockOut(instructorId) {
-  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
-  const timestamp = new Date();
-
-  // 打刻履歴シートに「退勤」の行を追加して書き込む
-  logSheet.appendRow([instructorId, "退勤", timestamp]);
-
-  return "退勤打刻を記録しました。";
-}
-
-/**
- *作業時間開始を記録する
- * @param {string} instructorId 選択された講師のID
- */
-
-function recordTaskStart(instructorId) {
-  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('打刻履歴');
-  const timestamp = new Date();
-
-  logSheet.appendRow([instructorId, '事務作業開始', timestamp]);
-  return "事務作業開始を記録しました。";
-}
-
-function recordTaskEnd(instructorId){
-  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
-  const timestamp = new Date();
-
-  logSheet.appendRow([instructorId, "事務作業終了", timestamp]);
-  return '事務作業終了を記録しました。';
-}
-
-/**
- * 休憩時間開始を記録する
- * @param {string} instructorId 選択された講師のID
- */
-
-function recordBreakStart(instructorId) {
-  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('打刻履歴');
-  const timestamp = new Date();
-
-  logSheet.appendRow([instructorId, "休憩開始", timestamp]);
-  return '休憩開始を記録しました。';
-}
-
-/**
- * 休憩終了を記録する
- * @param {string} instructorId 選択された講師のID
- */
-
-function recordBreakEnd(instructorId) {
-  const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
-  const timestamp = new Date();
-
-  logSheet.appendRow([instructorId, "休憩終了",timestamp]);
-  return "休憩終了を記録しました。";
-}
 
 /**
  * 担当した授業の報告と退勤打刻を記録する
@@ -483,10 +439,16 @@ function recordBreakEnd(instructorId) {
 function recordTaughtClasses(taughtClasses, selectedPeriod) {
   const logSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("打刻履歴");
   const timestamp = new Date();
-  const instructorId = PropertiesService.getUserProperties().getProperty('loggedInUser');
+  const loggedInUser = PropertiesService.getUserProperties().getProperty('loggedInUser');
+  const yearMonth = Utilities.formatDate(timestamp, "JST", "yyyy-MM");
+
+  if (isMonthClosed(yearMonth)) {
+    // エラーを発生させることで、フロントエンドの.withFailureHandlerにメッセージを渡す
+    throw new Error(`${yearMonth}は締め処理済みのため、授業報告は記録できません。`);
+  }
 
   // taughtClassesが空かどうかのチェック
-  if (!instructorId) {
+  if (!loggedInUser) {
     // ログイン情報がない場合はエラーを返す
     throw new Error("ログイン情報が見つかりません。再ログインしてください。");
   }
@@ -494,7 +456,7 @@ function recordTaughtClasses(taughtClasses, selectedPeriod) {
   // 配列で受け取った授業を1行ずつ記録
   taughtClasses.forEach(classInfo => {
     logSheet.appendRow([
-      instructorId,
+      loggedInUser,
       "授業",         // 種別
       timestamp,  //将来的に、授業ごとに押してもらうかも？
       classInfo.className, // 担当時限 (例: "1限")
@@ -505,12 +467,30 @@ function recordTaughtClasses(taughtClasses, selectedPeriod) {
   });
   
   // 通常の退勤打刻も記録する
-  logSheet.appendRow([instructorId, "退勤", timestamp]);
+  logSheet.appendRow([loggedInUser, "退勤", timestamp]);
 
   // 最後に占いを行い、その結果を返す
-  const fortune = getFortune(instructorId);
+  const fortune = getFortune(loggedInUser);
   return fortune;
 }
+
+/**
+ * 指定された月が締め済みかどうかをチェックするヘルパー関数
+ * @param {string} yearMonth 'yyyy-MM'形式のチェックしたい月
+ * @return {boolean} 締め済みならtrue、そうでなければfalse
+ */
+function isMonthClosed(yearMonth) {
+  const closeManagementSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("締め管理");
+  // シートが存在しない、またはデータが1行もなければ、締められていないと判断
+  if (!closeManagementSheet || closeManagementSheet.getLastRow() < 2) {
+    return false;
+  }
+  const closedMonthsData = closeManagementSheet.getRange("A2:A" + closeManagementSheet.getLastRow()).getDisplayValues();
+  // .flat()で二次元配列を一次元にし、.includes()で月が含まれるかチェック
+  return closedMonthsData.flat().includes(yearMonth);
+}
+
+
 
 /**
  * ログイン状態をリセット（ログアウト）するための関数

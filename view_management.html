@@ -46,7 +46,7 @@
     </table>
 
     <br>
-    <button id="finalize-button">給与を締める</button>
+    <button id="finalize-button">全ての講師の給与を締める</button>
     <button id="pdf-button">PDF出力</button>
     <button id="logout-btn">ログアウト</button>
 
@@ -70,7 +70,7 @@
           }
         });
 
-        // --- 表示ボタン処理 ---
+        // 給与表示ボタン処理
         viewButton.addEventListener('click', function() {
           const targetInstructorId = instructorSelect.value;
           const targetYearMonth = monthSelect.value;
@@ -89,7 +89,7 @@
               const monthly = salaryData.monthly;
               const yearly = salaryData.yearly;
 
-              // 表示更新関数
+              // 講師の給料表示を更新する関数
               function updateDisplay() {
                 // 支給
                 document.getElementById('monthly-total').textContent = monthly.total + "円";
@@ -122,14 +122,14 @@
             .getSalaryDataForManagement(targetInstructorId, targetYearMonth);
         });
 
-        // --- ログアウト ---
+        // ログアウト
         document.getElementById('logout-btn').addEventListener('click', function() {
           google.script.run.withSuccessHandler(function() {
             window.top.location.href = appUrl;
           }).logout();
         });
 
-        // --- PDF出力 ---
+        // PDF出力
         document.getElementById('pdf-button').addEventListener('click', function() {
           const teacher = instructorSelect.value;
           const month = monthSelect.value;
@@ -153,7 +153,7 @@
           }).generatePayslipPdf(teacher, month, deductions);
         });
 
-        // --- 締め処理 ---
+        // 締め処理
         document.getElementById('finalize-button').addEventListener('click', function() {
           const month = monthSelect.value;
           if (!month) {

@@ -20,13 +20,21 @@
           }
         ?>
         </h2>
-
-        <div class="monthly-fortune-section">
-          <p>
-            今月の平均運勢（<?= averageFortune ?>ポイント）:
-            <span id="average-fortune"><?= averageFortuneText ?></span>
-          </p>
-          <small>（平均運勢:0未満→凶、0以上1未満→吉、1以上→大吉）</small>
+        <div class="fortune-gauge-container">
+          <p>今月の平均運勢 (<?= averageFortune ?> ポイント) : <strong><?= averageFortuneText ?></strong></p>
+          <div class="fortune-gauge">
+            <div class="fortune-gauge-bar">
+              <div class="fortune-gauge-fill" id="fortune-gauge-fill"></div>
+              
+              <div class="fortune-gauge-divider" style="left: 33.33%;"></div>
+              <div class="fortune-gauge-divider" style="left: 66.66%;"></div>
+            </div>
+            <div class="fortune-gauge-labels">
+              <span>凶</span>
+              <span>吉</span>
+              <span>大吉</span>
+            </div>
+          </div>
         </div>
       </section>
    </header>
@@ -86,21 +94,94 @@
       //ページが読み込まれたら、ボタンの状態を変更
       document.addEventListener("DOMContentLoaded", ()=>{
         updateButtonStates(currentStatus)
+        // 運勢ゲージを更新する処理
+        const averageFortuneValue = <?= averageFortune ?>;
+        const gaugeFill = document.getElementById('fortune-gauge-fill');
+
+        // 凶(-1~0), 吉(0~1), 大吉(1~2)のゾーン定義
+        const gaugeMin = -1;
+        const gaugeMax = 2;
+
+        // 運勢ポイントの境界値を定義
+        const kyoBoundary = 0;   // 凶から吉への境界
+        const kichiBoundary = 1; // 吉から大吉への境界
+
+        // 現在の運勢ポイントがゲージの範囲内に収まるように調整（2から-1にする）
+        const clampedValue = Math.max(gaugeMin, Math.min(averageFortuneValue, gaugeMax));
+
+        // 新しいゲージ範囲に対する現在位置をパーセンテージで計算
+        // 計算式: ( (現在の値 - 最小値) / (最大値 - 最小値) ) * 100
+        const percentage = ((clampedValue - gaugeMin) / (gaugeMax - gaugeMin)) * 100;
+
+        gaugeFill.style.width = percentage + '%';
+
+        // ポイントに応じてバーの色を決定
+        // 吉や凶が出た時に輝かないように、前回の輝く金色のクラスを削除しておく
+        gaugeFill.classList.remove('fortune-gauge-fill-daikichi');
+
+        let barColor = '#d9534f'; // デフォルトは凶の色 (赤)
+
+        if (averageFortuneValue > kichiBoundary) {
+          // 大吉の場合、色を直接指定する代わりに、輝く金色のCSSクラスを追加
+          gaugeFill.classList.add('fortune-gauge-fill-daikichi');
+          barColor = ''; // 通常の背景色を適用しない
+        } else if (averageFortuneValue > kyoBoundary) {
+          barColor = '#5bc0de'; // 吉の色 (青)
+        }
+        // barColorが空でない場合（凶か吉の場合）のみ背景色を設定
+        if (barColor) {
+          gaugeFill.style.backgroundColor = barColor;
+        }
       })
 
-    // 出勤ボタンが押された時の処理
-      document.getElementById('clock-in-btn').addEventListener('click', function() {
-
-    // GAS側の`recordClockIn`関数を呼び出す
+      //ボタンの共通する処理をまとめる
+      function hundleSimpleClocking(action, successMessage, newStatus){
         google.script.run
-          .withSuccessHandler(function(response) {
-            alert(response); // 成功したらGASからの返事を表示
-            currentStatus = 'working'; // 状態を「勤務中」に更新
-            updateButtonStates(currentStatus); // ボタンの状態を更新
+          .withSuccessHandler(function(response){
+            alert(response);
+            currentStatus = newStatus;
+            updateButtonStates(currentStatus);
           })
-          .recordClockIn(loggedInUser);
+          .recordAction(loggedInUser,action, successMessage);
+      }
+
+      //出勤ボタンが押された時の処理
+      document.querySelector('#clock-in-btn').addEventListener('click', function() {
+        hundleSimpleClocking('出勤',  '出勤打刻を記録しました。', 'working');
       });
 
+      //事務作業開始ボタン
+      document.querySelector('#task-start-btn').addEventListener('click', ()=>{
+        hundleSimpleClocking('事務作業開始', '事務作業開始を記録しました。', 'on-task');
+      });
+
+      //事務作業終了ボタン
+      document.querySelector('#task-end-btn').addEventListener('click', ()=>{
+        hundleSimpleClocking('事務作業終了', '事務作業終了を記録しました。', 'working');
+      });
+
+      //休憩開始ボタン
+      document.querySelector('#start-break-btn').addEventListener('click', ()=>{
+        hundleSimpleClocking('休憩開始', '休憩開始を記録しました。', 'on-break');
+      });
+
+      //休憩終了ボタン
+      document.querySelector("#end-break-btn").addEventListener("click", ()=>{
+        hundleSimpleClocking('休憩終了', '休憩終了を記録しました。', 'working');
+      });
+
+      // 交通費修正ボタンが押された時の処理
+      document.getElementById('update-transportation-fee-btn').addEventListener('click', ()=>{
+        const updatedFee = document.getElementById('transportation-fee').value;
+        google.script.run
+          .withSuccessHandler((response)=>{
+            alert(response);
+          })
+          .updateTransportationFee(updatedFee);
+      });
+
+
+      //退勤時に担当した授業登録と、おみくじの表示をする
       document.getElementById('clock-out-btn').addEventListener('click', function() {
 
           // 1. ポップアップで使うHTML要素を取得
@@ -151,7 +232,6 @@
      * 「登録完了」ボタンが押されたら、打刻履歴に担当授業と時刻を打刻、おみくじを引けるようにする
      */
       document.getElementById('submit-checkout-btn').addEventListener('click', function() {
-        //意図していない変更を防ぐためにquerySelectorで統一
         //task-itemはhtmlの授業選択欄
         //task-checklistはtask-itemを外包する箱
         const checklistContainer = document.querySelector('#task-checklist');
@@ -178,7 +258,7 @@
         // GAS側のrecordTaughtClasses関数を呼び出す
       google.script.run
         .withSuccessHandler(function(fortuneResult) {
-          // --- 共通の分岐設定 ---
+          // 占いの結果の分岐設定 
           let bgColor = "#fff";
           let icon = "❓";
           let showAnim = "animate__fadeInDown";
@@ -216,7 +296,16 @@
           });
         })
         .withFailureHandler(function(error) {
-          alert("エラーが発生しました: " + error.message);
+         // まず、授業登録ポップアップを非表示にするして、打刻画面に戻る
+          document.getElementById('check-out-modal').style.display = 'none';
+            
+           // SweetAlertを使って、エラーメッセージを分かりやすく表示する
+          Swal.fire({
+            icon: 'error',
+            title: '登録できませんでした',
+            text: error.message,
+            confirmButtonText: 'OK'
+          });
         })
         .recordTaughtClasses(taughtClasses, selectedPeriod);
       })
@@ -227,7 +316,7 @@
         if (status === 'not-clocked-in') {
           document.getElementById('clock-in-btn').disabled = false;
           document.getElementById("logout-btn").disabled = false;
-        } else if (status === 'working') {
+        } else if (status === 'working') {  //出勤が押された時、交通費修正、退勤、事務作業開始、休憩開始のボタンが押せる
           document.getElementById('clock-in-btn').disabled = true;
           document.getElementById('end-break-btn').disabled = true;
           document.getElementById('task-end-btn').disabled = true;
@@ -235,34 +324,32 @@
           document.getElementById('clock-out-btn').disabled = false;
           document.getElementById('task-start-btn').disabled = false;
           document.getElementById('start-break-btn').disabled = false;
-        } else if (status === 'on-task') {
+        } else if (status === 'on-task') {  //作業開始ボタンが押された時、作業終了ボタンだけ押せる
           document.getElementById('clock-out-btn').disabled = true;
           document.getElementById('task-start-btn').disabled = true;
           document.getElementById('start-break-btn').disabled = true;
           document.getElementById("logout-btn").disabled = true;
           document.getElementById('task-end-btn').disabled = false;
-        } else if (status === 'on-break') {
+        } else if (status === 'on-break') { //休憩開始ボタンが押された時、休憩終了ボタンだけ押せる
           document.getElementById('clock-out-btn').disabled = true;
           document.getElementById('task-start-btn').disabled = true;
           document.getElementById('start-break-btn').disabled = true;
           document.getElementById("logout-btn").disabled = true;
           document.getElementById('end-break-btn').disabled = false;
-        }else if (status === "reported") {
+        }else if (status === "reported") {  //
           document.getElementById("logout-btn").disabled = false;
 
         }
       }
 
 
-//  ログアウトボタンが押された時の処理
-
+    //  ログアウトボタン
     document.getElementById('logout-btn').addEventListener('click', function() {
-    // GAS側の`logout`関数を呼び出す
       google.script.run
         .withSuccessHandler(function() {
-      // ログアウトが成功したら、ページを再読み込みする
+      //インラインフレームでブロックされるため、ブラウザのウィンドウ（トップページ）に対して移動を命じる
       // doGetが再実行され、今度はログイン画面に移動する
-          window.top.location.href = appUrl;; //インラインフレームでブロックされるため、ブラウザのウィンドウ（トップページ）に対して移動を命じる
+          window.top.location.href = appUrl; 
         })
         .logout();
     });

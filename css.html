@@ -13,8 +13,8 @@
   /* 見出しのスタイル */
   h1, h2, h3 {
     font-family: 'Yuji Syuku', serif; /* 見出しは毛筆感のあるフォントに */
-    color: #5a4a4a;
-    border-bottom: 2px solid #a8937a;
+    color: #5a4a4a; /**/
+    border-bottom: 2px solid #a8937a; /*黄土色*/
     padding-bottom: 10px;
   }
   
@@ -33,7 +33,7 @@
   }
 
   th {
-    background-color: #e6dfd6; /* ヘッダーの背景色 */
+    background-color: #e6dfd6; /*  */
     font-weight: bold;
   }
 
@@ -42,7 +42,7 @@
     background-color: rgba(255, 255, 255, 0.7); /* 半透明の白背景 */
     padding: 25px;
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);/**/
     margin-bottom: 20px;
   }
 
@@ -69,13 +69,13 @@
 
   button:active:not(:disabled) {
     transform: translateY(2px); /* クリック時に沈む */
-    box-shadow: 0 2px #5a4a4a;
+    box-shadow: 0 2px #5a4a4a; /**/
   }
 
   button:disabled {
-    background-color: #c9bdae;
+    background-color: #c9bdae; /**/
     cursor: not-allowed;
-    box-shadow: 0 4px #a89d90;
+    box-shadow: 0 4px #a89d90; /**/
   }
 
   /* ログアウトボタンを少し変える（判子風） */
@@ -133,10 +133,90 @@
     max-width: 500px;
     border-radius: 10px;
   }
-  
 
   #fortune-result.show {
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* --- 運勢ゲージのスタイル --- */
+.fortune-gauge-container {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* ゲージの上にある「今月の平均運勢...」のテキスト */
+.fortune-gauge-container p {
+  text-align: center;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.fortune-gauge {
+  padding: 10px 0;
+}
+
+.fortune-gauge-bar {
+  position: relative;
+  height: 25px;
+  background-color: #e0d9cf; /* バーの背景色（未達エリア） */
+  border-radius: 15px;
+  border: 1px solid #a8937a; 
+  overflow: hidden; /* 角丸を維持するため */
+}
+
+/* 色が溜まっていく部分のバー（JavaScriptで幅と色が変わる） */
+.fortune-gauge-fill {
+  position: absolute;//親クラスがrelativeだと子クラスは親をスタート位置にする
+  top: 0;
+  left: 0; //左からゲージが貯まる
+  height: 100%;
+  width: 0; /* JSで幅を制御 */
+  border-radius: 15px 0 0 15px; /* 左側だけ角丸に */
+  transition: width 0.5s ease-out, background-color 0.5s ease-out; /* アニメーション */
+}
+
+/* 凶・吉・大吉のゾーンを区切る縦線 */
+.fortune-gauge-divider {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background-color: rgba(90, 74, 74, 0.5); /* 区切り線の色 */
+}
+
+/* ゲージの下にある「凶」「吉」「大吉」のラベル */
+.fortune-gauge-labels {
+  display: flex;
+  justify-content: space-around;//等間隔配置
+  margin-top: 8px;
+  font-family: 'Yuji Syuku', serif;
+  font-size: 16px;
+  color: #5a4a4a;
+}
+
+/* 大吉のために、金色のグラデーションとアニメーションを適用する新しいクラス */
+.fortune-gauge-fill-daikichi {
+  /* 複数の黄色と茶色を重ねて金属的な質感を出すグラデーション */
+  background: linear-gradient(135deg, 
+    #f0ad4e 25%, 
+    #ffd700 50%, 
+    #f0ad4e 75%
+  );
+  background-size: 200% 200%; /* グラデーションのサイズを大きくして動きを滑らかに */
+  animation: shimmer 2s linear infinite; /* 'shimmer'アニメーションを2秒で繰り返す */
+}
+
+/* 光が左から右へ流れるように見せるアニメーションの定義 */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
 </style>
